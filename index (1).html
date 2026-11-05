@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Challengers! Web Mini</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@400;600;800;900&display=swap');
+    body { font-family: 'Pretendard', sans-serif; }
+    .card-zoom { transition: transform 0.15s ease-in-out; }
+    .card-zoom:hover { transform: translateY(-4px); }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col items-center p-3 md:p-6 select-none">
+
+  <!-- Header -->
+  <header class="w-full max-w-4xl flex items-center justify-between pb-4 border-b border-slate-800">
+    <div class="flex items-center gap-3">
+      <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500 to-rose-500 flex items-center justify-center font-black text-xl text-white shadow-lg shadow-rose-500/20">
+        <i class="fa-solid fa-flag"></i>
+      </div>
+      <div>
+        <h1 class="text-xl md:text-2xl font-black tracking-tight text-white flex items-center gap-2">
+          챌린저스! <span class="text-xs px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-400 border border-rose-500/30 font-semibold">Web Prototype</span>
+        </h1>
+        <p class="text-xs text-slate-400">덱빌딩 x 자동 배틀 오토체스 스타일 카드 게임</p>
+      </div>
+    </div>
+    <div class="flex items-center gap-4 text-xs font-bold bg-slate-900 border border-slate-800 px-3 py-2 rounded-xl">
+      <div>라운드 <span id="ui-round" class="text-amber-400 text-sm">1</span> / 5</div>
+      <div class="h-3 w-px bg-slate-700"></div>
+      <div>트로피 <span id="ui-trophies" class="text-rose-400 text-sm">0</span>개</div>
+    </div>
+  </header>
+
+  <!-- Main View Router -->
+  <main class="w-full max-w-4xl mt-6 flex-1 flex flex-col">
+
+    <!-- 1. DRAFT & DECK MANAGEMENT VIEW -->
+    <section id="view-draft" class="flex-1 flex flex-col gap-6">
+      <div class="bg-slate-900/90 border border-slate-800 p-5 rounded-2xl shadow-xl">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <span class="text-xs font-bold text-amber-400 uppercase tracking-wider">Draft Phase</span>
+            <h2 class="text-lg md:text-xl font-bold text-slate-100">새 챌린저 영입</h2>
+          </div>
+          <span id="draft-pick-counter" class="text-xs font-semibold px-2.5 py-1 rounded bg-slate-800 text-slate-300">
+            남은 영입: <span class="text-amber-400 font-bold">1</span>장
+          </span>
+        </div>
+
+        <div id="draft-choices" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <!-- Draft choices injected here -->
+        </div>
+      </div>
+
+      <!-- Current Player Deck Management -->
+      <div class="bg-slate-900/60 border border-slate-800/80 p-5 rounded-2xl flex-1 flex flex-col">
+        <div class="flex items-center justify-between mb-3">
+          <div>
+            <h3 class="font-bold text-slate-200 flex items-center gap-2">
+              내 출전 덱 (<span id="my-deck-count" class="text-amber-400">0</span>장)
+            </h3>
+            <p class="text-xs text-slate-400">불필요한 카드는 방출(삭제)하여 벤치 과밀 탈락을 방지하세요.</p>
+          </div>
+          <button id="btn-start-battle" class="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-black px-6 py-2.5 rounded-xl shadow-lg shadow-emerald-500/20 active:scale-95 transition flex items-center gap-2 text-sm">
+            <span>배틀 시작</span>
+            <i class="fa-solid fa-bolt"></i>
+          </button>
+        </div>
+
+        <div id="my-deck-container" class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-2.5 py-2 overflow-y-auto max-h-72 pr-1">
+          <!-- Deck cards injected here -->
+        </div>
+      </div>
+    </section>
+
+    <!-- 2. BATTLE ARENA VIEW (Hidden initially) -->
+    <section id="view-battle" class="hidden flex-1 flex flex-col gap-4">
+      <!-- Arena Board -->
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 md:p-6 shadow-2xl flex flex-col gap-6 relative overflow-hidden">
+        
+        <!-- Opponent Status -->
+        <div class="flex flex-col gap-2">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span class="w-3 h-3 rounded-full bg-rose-500 animate-pulse"></span>
+              <span class="font-bold text-slate-200 text-sm">상대 챔피언 (AI)</span>
+              <span class="text-xs text-slate-500">덱 <span id="opp-deck-count" class="text-rose-400 font-bold">0</span>장 남음</span>
+            </div>
+            <div class="text-xs text-slate-400">
+              벤치: <span id="opp-bench-count" class="font-bold text-white">0</span> / 6칸
+            </div>
+          </div>
+          <!-- Opponent Bench Slots -->
+          <div id="opp-bench-slots" class="grid grid-cols-6 gap-1.5 h-14 bg-slate-950/60 rounded-xl p-1.5 border border-slate-800/80">
+            <!-- 6 bench slots -->
+          </div>
+        </div>
+
+        <!-- Center Match Ring (Flag & Duel) -->
+        <div class="bg-slate-950/90 border border-slate-800 rounded-xl p-4 md:p-6 flex flex-col md:flex-row items-center justify-between gap-4 relative">
+          
+          <!-- Player Active Slot -->
+          <div class="w-full md:w-1/3 flex flex-col items-center">
+            <span class="text-xs font-semibold text-emerald-400 mb-2">내 공격/수비 카드</span>
+            <div id="player-active-card-box" class="w-36 h-48 rounded-xl border-2 border-dashed border-slate-700 flex flex-col items-center justify-center p-2 text-center text-slate-500 text-xs">
+              대기 중
+            </div>
+          </div>
+
+          <!-- The Flag & Power Balance Gauge -->
+          <div class="flex flex-col items-center gap-2 my-2">
+            <div id="flag-indicator" class="w-14 h-14 rounded-full bg-slate-800 border-2 border-slate-700 flex items-center justify-center text-2xl text-slate-400 shadow-xl transition-all duration-300">
+              <i class="fa-solid fa-flag"></i>
+            </div>
+            <span id="flag-holder-text" class="text-xs font-extrabold text-slate-400 uppercase tracking-widest">깃발 쟁탈전</span>
+            <div class="text-xs font-bold px-3 py-1 bg-slate-900 border border-slate-800 rounded-full text-amber-400" id="battle-status-badge">
+              전투 준비
+            </div>
+          </div>
+
+          <!-- Opponent Active Slot -->
+          <div class="w-full md:w-1/3 flex flex-col items-center">
+            <span class="text-xs font-semibold text-rose-400 mb-2">상대 공격/수비 카드</span>
+            <div id="opp-active-card-box" class="w-36 h-48 rounded-xl border-2 border-dashed border-slate-700 flex flex-col items-center justify-center p-2 text-center text-slate-500 text-xs">
+              대기 중
+            </div>
+          </div>
+        </div>
+
+        <!-- Player Bench & Status -->
+        <div class="flex flex-col gap-2">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span class="w-3 h-3 rounded-full bg-emerald-500"></span>
+              <span class="font-bold text-slate-200 text-sm">플레이어</span>
+              <span class="text-xs text-slate-500">덱 <span id="player-deck-count" class="text-emerald-400 font-bold">0</span>장 남음</span>
+            </div>
+            <div class="text-xs text-slate-400">
+              벤치: <span id="player-bench-count" class="font-bold text-white">0</span> / 6칸
+            </div>
+          </div>
+          <!-- Player Bench Slots -->
+          <div id="player-bench-slots" class="grid grid-cols-6 gap-1.5 h-14 bg-slate-950/60 rounded-xl p-1.5 border border-slate-800/80">
+            <!-- 6 bench slots -->
+          </div>
+        </div>
+
+        <!-- Battle Controls & Live Logs -->
+        <div class="pt-2 border-t border-slate-800 flex flex-col gap-2">
+          <div class="flex items-center justify-between gap-3">
+            <div class="flex items-center gap-2">
+              <button id="btn-next-step" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-xs font-bold border border-slate-700 transition">
+                <i class="fa-solid fa-forward-step mr-1"></i> 다음 1턴
+              </button>
+              <button id="btn-auto-play" class="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-lg text-xs font-extrabold transition">
+                <i class="fa-solid fa-play mr-1"></i> 자동 진행
+              </button>
+            </div>
+            <span id="auto-speed-indicator" class="text-xs text-slate-400 font-mono">속도: 1.0x</span>
+          </div>
+
+          <!-- Combat Text Log -->
+          <div id="battle-log-feed" class="bg-slate-950 border border-slate-800 rounded-lg p-2.5 h-24 overflow-y-auto font-mono text-xs text-slate-400 flex flex-col gap-1">
+            <div class="text-slate-500">시스템: 양쪽 덱이 셔플되어 필드에 배치되었습니다.</div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- 3. ROUND RESULT MODAL (Hidden) -->
+    <div id="modal-result" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50 hidden">
+      <div class="bg-slate-900 border border-slate-800 max-w-sm w-full p-6 rounded-2xl shadow-2xl flex flex-col items-center text-center">
+        <div id="result-icon-box" class="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl mb-4">
+          <i class="fa-solid fa-trophy"></i>
+        </div>
+        <h3 id="result-title" class="text-2xl font-black text-white mb-1">승리!</h3>
+        <p id="result-desc" class="text-sm text-slate-400 mb-6">상대 벤치 슬롯이 가득 차 깃발을 지켜냈습니다.</p>
+        <button id="btn-next-round" class="w-full py-3 bg-gradient-to-r from-amber-500 to-rose-500 hover:brightness-110 text-white font-black rounded-xl shadow-lg transition">
+          다음 라운드로 이동
+        </button>
+      </div>
+    </div>
+
+  </main>
+
+  <script>
+    // --- 1. GAME DATA & MASTER CARD CATALOG ---
+    const FACTION_INFO = {
+      WARRIOR: { name: '전사', color: 'from-amber-600 to-orange-700', badge: 'bg-amber-900/60 text-amber-300' },
+      BEAST: { name: '야수', color: 'from-emerald-600 to-teal-800', badge: 'bg-emerald-900/60 text-emerald-300' },
+      MAGIC: { name: '마법', color: 'from-indigo-600 to-purple-800', badge: 'bg-indigo-900/60 text-indigo-300' },
+      MECH: { name: '기계', color: 'from-cyan-600 to-blue-800', badge: 'bg-cyan-900/60 text-cyan-300' },
+      NEUTRAL: { name: '일반', color: 'from-slate-600 to-slate-800', badge: 'bg-slate-800 text-slate-300' }
+    };
+
+    const CARD_CATALOG = [
+      // Basic / Starters
+      { id: 'c_recruit', name: '신병', faction: 'WARRIOR', power: 2, desc: '기본 보병 훈련병.' },
+      { id: 'c_puppy', name: '사냥개', faction: 'BEAST', power: 2, desc: '날렵한 야수 파트너.' },
+      { id: 'c_apprentice', name: '견습 마법사', faction: 'MAGIC', power: 1, desc: '공격 시 필드에 마법 유닛당 +1 파워.', skill: 'MAGIC_SYNERGY' },
+      { id: 'c_drone', name: '정찰 드론', faction: 'MECH', power: 2, desc: '벤치에 기계 카드가 있으면 +2 파워.', skill: 'BENCH_MECH_BUFF' },
+
+      // Tier A Cards
+      { id: 'c_knight', name: '중갑 기사', faction: 'WARRIOR', power: 4, desc: '깃발 방어 시 +1 파워 방어 보너스.', skill: 'DEFENSE_BOOST' },
+      { id: 'c_wolf', name: '늑대 우두머리', faction: 'BEAST', power: 3, desc: '벤치의 야수 1마리당 +1 파워.', skill: 'BENCH_BEAST_SWARM' },
+      { id: 'c_sorcerer', name: '비전 술사', faction: 'MAGIC', power: 3, desc: '공격 돌파 성공 시 다음 아군 카드에 +2 파워 전달.', skill: 'PASS_CHARGE' },
+      { id: 'c_golem', name: '태엽 골렘', faction: 'MECH', power: 5, desc: '묵직하고 튼튼한 기계 인형.' },
+      { id: 'c_champion', name: '투기장 챔피언', faction: 'WARRIOR', power: 6, desc: '강력한 파워를 자랑하는 베테랑 검사.' },
+      { id: 'c_dragon', name: '원소룡', faction: 'MAGIC', power: 7, desc: '전장의 흐름을 뒤흔드는 고룡.' }
+    ];
+
+    // --- 2. GAME STATE MANAGEMENT ---
+    const MAX_BENCH_SLOTS = 6;
+    let gameState = {
+      round: 1,
+      trophies: 0,
+      playerDeck: [],
+      oppDeck: [],
+      // Battle state
+      battle: {
+        active: false,
+        flagHolder: null, // 'player' | 'opp' | null
+        playerActiveGroup: [], // current attacker/defender cards
+        oppActiveGroup: [],
+        playerBench: [], // Array of unique card names
+        oppBench: [],
+        currentAttacker: null, // 'player' | 'opp'
+        historyLog: []
+      }
+    };
+
+    let autoPlayTimer = null;
+
+    // --- 3. INITIALIZATION ---
+    function initGame() {
+      // Starter deck for player (6 cards)
+      gameState.playerDeck = [
+        { ...getCard('c_recruit') },
+        { ...getCard('c_recruit') },
+        { ...getCard('c_puppy') },
+        { ...getCard('c_apprentice') },
+        { ...getCard('c_drone') },
+        { ...getCard('c_recruit') }
+      ];
+      gameState.round = 1;
+      gameState.trophies = 0;
+      updateHeaderUI();
+      openDraftPhase();
+    }
+
+    function getCard(id) {
+      return CARD_CATALOG.find(c => c.id === id);
+    }
+
+    // --- 4. DRAFT PHASE LOGIC ---
+    function openDraftPhase() {
+      stopAutoPlay();
+      document.getElementById('view-draft').classList.remove('hidden');
+      document.getElementById('view-battle').classList.add('hidden');
+      document.getElementById('modal-result').classList.add('hidden');
+
+      // AI updates its deck automatically
+      generateOpponentDeck();
+
+      // Offer 3 cards for draft
+      renderDraftChoices();
+      renderPlayerDeck();
+    }
+
+    function renderDraftChoices() {
+      const container = document.getElementById('draft-choices');
+      container.innerHTML = '';
+
+      // Pick 3 random cards from pool
+      const choices = [];
+      const pool = [...CARD_CATALOG];
+      for (let i = 0; i < 3; i++) {
+        const randIdx = Math.floor(Math.random() * pool.length);
+        choices.push(pool[randIdx]);
+      }
+
+      choices.forEach(card => {
+        const faction = FACTION_INFO[card.faction];
+        const cardEl = document.createElement('div');
+        cardEl.className = 'bg-slate-950 border border-slate-800 rounded-xl p-4 flex flex-col justify-between card-zoom cursor-pointer hover:border-amber-500/60 transition group';
+        cardEl.innerHTML = `
+          <div>
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-xs px-2 py-0.5 rounded font-bold ${faction.badge}">${faction.name}</span>
+              <span class="text-base font-black text-amber-400 bg-amber-950/40 px-2.5 py-0.5 rounded-lg border border-amber-800/40">
+                ⚡ ${card.power}
+              </span>
+            </div>
+            <h4 class="font-extrabold text-slate-100 group-hover:text-amber-400 text-base">${card.name}</h4>
+            <p class="text-xs text-slate-400 mt-1 leading-relaxed">${card.desc}</p>
+          </div>
+          <button class="mt-4 w-full py-2 bg-slate-800 group-hover:bg-amber-500 group-hover:text-slate-950 font-bold rounded-lg text-xs transition">
+            덱에 영입하기
+          </button>
+        `;
+        cardEl.onclick = () => selectDraftCard(card);
+        container.appendChild(cardEl);
+      });
+    }
+
+    function selectDraftCard(card) {
+      gameState.playerDeck.push({ ...card });
+      renderPlayerDeck();
+      // Disable further picks this draft round
+      document.getElementById('draft-choices').innerHTML = `
+        <div class="col-span-3 text-center py-6 bg-slate-950/40 rounded-xl border border-slate-800 text-slate-400 text-xs font-semibold">
+          ✨ <span class="text-amber-400 font-bold">${card.name}</span> 영입 완료! 불필요한 카드를 방출하거나 배틀을 시작하세요.
+        </div>
+      `;
+      document.getElementById('draft-pick-counter').innerHTML = '영입 완료';
+    }
+
+    function removeDeckCard(index) {
+      if (gameState.playerDeck.length <= 4) {
+        alert('최소 4장 이상의 덱을 유지해야 합니다!');
+        return;
+      }
+      const removed = gameState.playerDeck.splice(index, 1)[0];
+      renderPlayerDeck();
+    }
+
+    function renderPlayerDeck() {
+      const container = document.getElementById('my-deck-container');
+      const countEl = document.getElementById('my-deck-count');
+      countEl.textContent = gameState.playerDeck.length;
+      container.innerHTML = '';
+
+      gameState.playerDeck.forEach((card, idx) => {
+        const faction = FACTION_INFO[card.faction];
+        const cardBox = document.createElement('div');
+        cardBox.className = 'bg-slate-950 border border-slate-800 rounded-lg p-2 flex flex-col justify-between relative group hover:border-slate-700 text-xs';
+        cardBox.innerHTML = `
+          <div>
+            <div class="flex items-center justify-between text-[10px] mb-1">
+              <span class="font-bold ${faction.badge} px-1 rounded">${faction.name}</span>
+              <span class="font-black text-amber-400">⚡${card.power}</span>
+            </div>
+            <div class="font-bold text-slate-200 truncate">${card.name}</div>
+          </div>
+          <button class="mt-2 w-full py-1 bg-rose-950/40 hover:bg-rose-600 text-rose-300 hover:text-white rounded text-[10px] font-semibold transition" title="덱에서 방출">
+            방출
+          </button>
+        `;
+        cardBox.querySelector('button').onclick = (e) => {
+          e.stopPropagation();
+          removeDeckCard(idx);
+        };
+        container.appendChild(cardBox);
+      });
+    }
+
+    function generateOpponentDeck() {
+      const deckSize = 5 + gameState.round;
+      const aiDeck = [];
+      for (let i = 0; i < deckSize; i++) {
+        const randCard = CARD_CATALOG[Math.floor(Math.random() * CARD_CATALOG.length)];
+        aiDeck.push({ ...randCard });
+      }
+      gameState.oppDeck = aiDeck;
+    }
+
+    // --- 5. BATTLE LOGIC ENGINE (CHALLENGERS RULES) ---
+    function startBattle() {
+      document.getElementById('view-draft').classList.add('hidden');
+      document.getElementById('view-battle').classList.remove('hidden');
+
+      // Shuffle decks
+      const shuffledPlayer = [...gameState.playerDeck].sort(() => Math.random() - 0.5);
+      const shuffledOpp = [...gameState.oppDeck].sort(() => Math.random() - 0.5);
+
+      gameState.battle = {
+        active: true,
+        playerDrawPile: shuffledPlayer,
+        oppDrawPile: shuffledOpp,
+        flagHolder: null, // Initial flag coin toss
+        playerActiveGroup: [],
+        oppActiveGroup: [],
+        playerBench: [],
+        oppBench: [],
+        currentAttacker: Math.random() < 0.5 ? 'player' : 'opp',
+        historyLog: []
+      };
+
+      appendBattleLog(`⚔️ 배틀 시작! 선공 추첨 결과: ${gameState.battle.currentAttacker === 'player' ? '플레이어 선공!' : '상대 선공!'}`);
+      updateBattleUI();
+    }
+
+    function executeNextBattleStep() {
+      const b = gameState.battle;
+      if (!b.active) return;
+
+      // 1. Initial State: No one holds flag
+      if (b.flagHolder === null) {
+        const attacker = b.currentAttacker;
+        const pile = attacker === 'player' ? b.playerDrawPile : b.oppDrawPile;
+
+        if (pile.length === 0) {
+          endBattle(attacker === 'player' ? 'opp' : 'player', '덱에 남은 카드가 없어 선취 깃발을 획득하지 못했습니다.');
+          return;
+        }
+
+        const drawnCard = pile.shift();
+        if (attacker === 'player') {
+          b.playerActiveGroup = [drawnCard];
+          b.flagHolder = 'player';
+          b.currentAttacker = 'opp';
+          appendBattleLog(`🚩 [플레이어] ${drawnCard.name}(⚡${drawnCard.power})이(가) 첫 깃발을 점유했습니다!`);
+        } else {
+          b.oppActiveGroup = [drawnCard];
+          b.flagHolder = 'opp';
+          b.currentAttacker = 'player';
+          appendBattleLog(`🚩 [상대 AI] ${drawnCard.name}(⚡${drawnCard.power})이(가) 첫 깃발을 점유했습니다!`);
+        }
+        updateBattleUI();
+        return;
+      }
+
+      // 2. Active Duel: Attacker tries to meet or exceed Defender's total power
+      const defender = b.flagHolder;
+      const attacker = b.flagHolder === 'player' ? 'opp' : 'player';
+      const defGroup = defender === 'player' ? b.playerActiveGroup : b.oppActiveGroup;
+      const attGroup = attacker === 'player' ? b.playerActiveGroup : b.oppActiveGroup;
+      const attPile = attacker === 'player' ? b.playerDrawPile : b.oppDrawPile;
+
+      const defPower = defGroup.reduce((sum, c) => sum + calculateCardPower(c, defender), 0);
+      let attPower = attGroup.reduce((sum, c) => sum + calculateCardPower(c, attacker), 0);
+
+      // If attacker hasn't matched defender power yet, must draw
+      if (attPower < defPower) {
+        if (attPile.length === 0) {
+          // Attacker has no cards to draw -> Defender Wins!
+          endBattle(defender, `${attacker === 'player' ? '플레이어' : '상대'}가 깃발을 탈환하기 위한 덱 카드가 소진되었습니다.`);
+          return;
+        }
+
+        const newCard = attPile.shift();
+        attGroup.push(newCard);
+        attPower += calculateCardPower(newCard, attacker);
+
+        appendBattleLog(`🃏 [${attacker === 'player' ? '플레이어' : '상대 AI'}] ${newCard.name} 소환! (현재 공격 파워: ⚡${attPower} / 목표: ⚡${defPower})`);
+
+        // Check if power meets or exceeds
+        if (attPower >= defPower) {
+          appendBattleLog(`💥 깃발 탈환 성공! [${attacker === 'player' ? '플레이어' : '상대 AI'}]이(가) 깃발을 빼앗았습니다!`);
+
+          // Send defenders to bench
+          sendGroupToBench(defGroup, defender);
+          if (defender === 'player') b.playerActiveGroup = [];
+          else b.oppActiveGroup = [];
+
+          // Transfer Flag
+          b.flagHolder = attacker;
+
+          // Check if defender bench overflowed
+          const benchList = defender === 'player' ? b.playerBench : b.oppBench;
+          if (benchList.length > MAX_BENCH_SLOTS) {
+            endBattle(attacker, `${defender === 'player' ? '플레이어' : '상대 AI'}의 벤치 슬롯 6칸이 초과하여 패배했습니다!`);
+            return;
+          }
+        }
+      }
+
+      updateBattleUI();
+    }
+
+    function calculateCardPower(card, side) {
+      let power = card.power;
+      const b = gameState.battle;
+
+      if (card.skill === 'BENCH_MECH_BUFF') {
+        const bench = side === 'player' ? b.playerBench : b.oppBench;
+        if (bench.includes('정찰 드론') || bench.includes('태엽 골렘')) power += 2;
+      } else if (card.skill === 'BENCH_BEAST_SWARM') {
+        const bench = side === 'player' ? b.playerBench : b.oppBench;
+        const count = bench.filter(name => name.includes('개') || name.includes('늑대')).length;
+        power += count;
+      }
+      return power;
+    }
+
+    function sendGroupToBench(group, side) {
+      const bench = side === 'player' ? gameState.battle.playerBench : gameState.battle.oppBench;
+      group.forEach(card => {
+        // Challengers Rule: Identical card names share the same bench slot!
+        if (!bench.includes(card.name)) {
+          bench.push(card.name);
+        }
+      });
+    }
+
+    function endBattle(winner, reason) {
+      gameState.battle.active = false;
+      stopAutoPlay();
+
+      const modal = document.getElementById('modal-result');
+      const title = document.getElementById('result-title');
+      const desc = document.getElementById('result-desc');
+      const iconBox = document.getElementById('result-icon-box');
+
+      if (winner === 'player') {
+        gameState.trophies += 1;
+        title.textContent = '라운드 승리!';
+        title.className = 'text-2xl font-black text-emerald-400 mb-1';
+        desc.textContent = reason;
+        iconBox.className = 'w-16 h-16 rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-3xl mb-4 border border-emerald-500/30';
+      } else {
+        title.textContent = '라운드 패배...';
+        title.className = 'text-2xl font-black text-rose-400 mb-1';
+        desc.textContent = reason;
+        iconBox.className = 'w-16 h-16 rounded-2xl bg-rose-500/20 text-rose-400 flex items-center justify-center text-3xl mb-4 border border-rose-500/30';
+      }
+
+      modal.classList.remove('hidden');
+      updateHeaderUI();
+    }
+
+    function proceedToNextRound() {
+      gameState.round += 1;
+      if (gameState.round > 5) {
+        alert(`전체 5라운드가 종료되었습니다! 최종 트로피: ${gameState.trophies}개`);
+        initGame();
+        return;
+      }
+      updateHeaderUI();
+      openDraftPhase();
+    }
+
+    // --- 6. UI UPDATERS ---
+    function updateHeaderUI() {
+      document.getElementById('ui-round').textContent = gameState.round;
+      document.getElementById('ui-trophies').textContent = gameState.trophies;
+    }
+
+    function updateBattleUI() {
+      const b = gameState.battle;
+      document.getElementById('player-deck-count').textContent = b.playerDrawPile ? b.playerDrawPile.length : 0;
+      document.getElementById('opp-deck-count').textContent = b.oppDrawPile ? b.oppDrawPile.length : 0;
+
+      // Update Flag visual
+      const flagEl = document.getElementById('flag-indicator');
+      const flagText = document.getElementById('flag-holder-text');
+      if (b.flagHolder === 'player') {
+        flagEl.className = 'w-14 h-14 rounded-full bg-emerald-500 border-2 border-emerald-300 flex items-center justify-center text-2xl text-slate-950 shadow-xl shadow-emerald-500/30 scale-110';
+        flagText.textContent = '플레이어 깃발 방어 중';
+        flagText.className = 'text-xs font-black text-emerald-400 uppercase tracking-widest';
+      } else if (b.flagHolder === 'opp') {
+        flagEl.className = 'w-14 h-14 rounded-full bg-rose-500 border-2 border-rose-300 flex items-center justify-center text-2xl text-slate-950 shadow-xl shadow-rose-500/30 scale-110';
+        flagText.textContent = '상대 AI 깃발 방어 중';
+        flagText.className = 'text-xs font-black text-rose-400 uppercase tracking-widest';
+      } else {
+        flagEl.className = 'w-14 h-14 rounded-full bg-slate-800 border-2 border-slate-700 flex items-center justify-center text-2xl text-slate-500';
+        flagText.textContent = '깃발 선취 대결';
+        flagText.className = 'text-xs font-extrabold text-slate-400 uppercase tracking-widest';
+      }
+
+      // Render Active Duelist Cards
+      renderActiveCards('player-active-card-box', b.playerActiveGroup, 'player');
+      renderActiveCards('opp-active-card-box', b.oppActiveGroup, 'opp');
+
+      // Render Bench Slots (6 capacity)
+      renderBenchSlots('player-bench-slots', b.playerBench, 'player-bench-count');
+      renderBenchSlots('opp-bench-slots', b.oppBench, 'opp-bench-count');
+    }
+
+    function renderActiveCards(containerId, group, side) {
+      const box = document.getElementById(containerId);
+      if (!group || group.length === 0) {
+        box.innerHTML = `<span class="text-xs text-slate-600 font-bold">비어 있음</span>`;
+        return;
+      }
+
+      const totalPower = group.reduce((sum, c) => sum + calculateCardPower(c, side), 0);
+      const latestCard = group[group.length - 1];
+      const faction = FACTION_INFO[latestCard.faction];
+
+      box.innerHTML = `
+        <div class="w-full h-full bg-slate-900 border ${side === 'player' ? 'border-emerald-500/50' : 'border-rose-500/50'} rounded-lg p-2.5 flex flex-col justify-between shadow-lg">
+          <div>
+            <div class="flex items-center justify-between text-[11px] mb-1">
+              <span class="${faction.badge} px-1.5 py-0.5 rounded font-bold">${faction.name}</span>
+              <span class="text-xs font-black text-amber-400">⚡${latestCard.power}</span>
+            </div>
+            <h5 class="font-extrabold text-slate-100 text-sm mt-1">${latestCard.name}</h5>
+            <p class="text-[10px] text-slate-400 mt-1 leading-tight">${latestCard.desc}</p>
+          </div>
+          <div class="pt-2 border-t border-slate-800 flex items-center justify-between">
+            <span class="text-[10px] text-slate-400">${group.length > 1 ? `누적 (${group.length}장)` : '단독 공격'}</span>
+            <span class="text-sm font-black ${side === 'player' ? 'text-emerald-400' : 'text-rose-400'}">총 파워: ⚡${totalPower}</span>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderBenchSlots(containerId, benchList, countLabelId) {
+      const container = document.getElementById(containerId);
+      document.getElementById(countLabelId).textContent = benchList.length;
+      container.innerHTML = '';
+
+      for (let i = 0; i < MAX_BENCH_SLOTS; i++) {
+        const slotCard = benchList[i];
+        const slotEl = document.createElement('div');
+        if (slotCard) {
+          slotEl.className = 'bg-slate-800/90 border border-slate-700 text-slate-300 rounded-lg flex items-center justify-center text-[10px] font-bold p-1 text-center truncate';
+          slotEl.textContent = slotCard;
+        } else {
+          slotEl.className = 'border border-dashed border-slate-800/80 rounded-lg flex items-center justify-center text-[10px] text-slate-700';
+          slotEl.textContent = `칸 ${i+1}`;
+        }
+        container.appendChild(slotEl);
+      }
+    }
+
+    function appendBattleLog(msg) {
+      const feed = document.getElementById('battle-log-feed');
+      const line = document.createElement('div');
+      line.textContent = `• ${msg}`;
+      feed.appendChild(line);
+      feed.scrollTop = feed.scrollHeight;
+    }
+
+    function toggleAutoPlay() {
+      if (autoPlayTimer) {
+        stopAutoPlay();
+      } else {
+        document.getElementById('btn-auto-play').innerHTML = '<i class="fa-solid fa-pause mr-1"></i> 정지';
+        document.getElementById('btn-auto-play').className = 'px-4 py-2 bg-rose-500 hover:bg-rose-400 text-white rounded-lg text-xs font-extrabold transition';
+        autoPlayTimer = setInterval(() => {
+          if (!gameState.battle.active) {
+            stopAutoPlay();
+            return;
+          }
+          executeNextBattleStep();
+        }, 1100);
+      }
+    }
+
+    function stopAutoPlay() {
+      if (autoPlayTimer) {
+        clearInterval(autoPlayTimer);
+        autoPlayTimer = null;
+      }
+      const btn = document.getElementById('btn-auto-play');
+      if (btn) {
+        btn.innerHTML = '<i class="fa-solid fa-play mr-1"></i> 자동 진행';
+        btn.className = 'px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-lg text-xs font-extrabold transition';
+      }
+    }
+
+    // --- 7. EVENT LISTENERS ---
+    document.getElementById('btn-start-battle').addEventListener('click', startBattle);
+    document.getElementById('btn-next-step').addEventListener('click', executeNextBattleStep);
+    document.getElementById('btn-auto-play').addEventListener('click', toggleAutoPlay);
+    document.getElementById('btn-next-round').addEventListener('click', proceedToNextRound);
+
+    // Boot Game
+    initGame();
+  </script>
+</body>
+</html>
